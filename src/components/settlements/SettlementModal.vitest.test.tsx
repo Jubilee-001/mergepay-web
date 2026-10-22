@@ -27,6 +27,18 @@ vi.mock("@/lib/queries", () => ({
   useConfirmSettlement: () => ({ mutateAsync }),
 }));
 
+vi.mock("@/components/wallet/TrustlineBanner", () => ({
+  TrustlineBanner: ({
+    asset,
+  }: {
+    asset?: { code: string; issuer: string | null };
+  }) => (
+    <div data-testid="trustline-banner">
+      {asset ? `${asset.code}:${asset.issuer}` : "missing asset"}
+    </div>
+  ),
+}));
+
 vi.mock("@/lib/stellar", async () => {
   const actual = await vi.importActual<typeof import("@/lib/stellar")>("@/lib/stellar");
   return { ...actual, signXdr: vi.fn() };
@@ -138,6 +150,13 @@ describe("SettlementModal", () => {
     renderModal();
     expect(screen.getByText("Taylor")).toBeInTheDocument();
     expect(screen.getByRole("list", { name: "Settlement progress" }).querySelector("[aria-current=step]")).toHaveTextContent("Review");
+  });
+
+  it("checks the selected non-XLM asset before settling", () => {
+    const issuer = "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN";
+    renderModal({ target: { ...target, assetCode: "USDC", assetIssuer: issuer } });
+
+    expect(screen.getByTestId("trustline-banner")).toHaveTextContent(`USDC:${issuer}`);
   });
 
   it("verifies the memo, signs, submits and shows success", async () => {

@@ -84,7 +84,7 @@ describe("useTrustlineRequirements", () => {
     await waitFor(() => expect(result.current.status).toBe("ready"));
     expect(result.current.missing).toEqual([]);
     expect(result.current.address).toBe(ADDRESS);
-    expect(stellar.getWalletAssets).toHaveBeenCalledWith(ADDRESS);
+    expect(stellar.getWalletAssets).toHaveBeenCalledWith(ADDRESS, undefined);
   });
 
   it("reports missing assets when a trustline is absent", async () => {
@@ -94,6 +94,22 @@ describe("useTrustlineRequirements", () => {
 
     await waitFor(() => expect(result.current.status).toBe("missing"));
     expect(result.current.missing.map((a) => a.code)).toEqual(["USDC"]);
+  });
+
+  it("checks only the requested settlement asset when one is provided", async () => {
+    const requestedAsset = {
+      code: "ARST",
+      issuer: "GBBD47IF6LWK2P7MDEVSCWR7DPUWV3NY3DTQEVFL4TWVC5GIOTASH4EU",
+    };
+    stellar.getWalletAssets.mockResolvedValue([
+      asset({ ...requestedAsset, hasTrustline: false }),
+    ]);
+
+    const { result } = renderHook(() => useTrustlineRequirements(requestedAsset));
+
+    await waitFor(() => expect(result.current.status).toBe("missing"));
+    expect(result.current.missing.map((missing) => missing.code)).toEqual(["ARST"]);
+    expect(stellar.getWalletAssets).toHaveBeenCalledWith(ADDRESS, [requestedAsset]);
   });
 
   it("absorbs Horizon failures without throwing", async () => {

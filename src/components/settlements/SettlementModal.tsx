@@ -45,6 +45,7 @@ import { AssetBadge } from "@/components/asset-badge";
 import { TxLink } from "@/components/tx-link";
 import { MemoBadge } from "@/components/stellar/MemoBadge";
 import { WalletPrerequisiteNotice } from "@/components/wallet/wallet-status";
+import { TrustlineBanner } from "@/components/wallet/TrustlineBanner";
 import { useWalletStatus } from "@/hooks/useWalletStatus";
 import { api } from "@/lib/api";
 import { useConfirmSettlement } from "@/lib/queries";
@@ -333,6 +334,11 @@ export function SettlementModal({ open, onClose, groupId, target, onSettled, tim
                   <Bullet icon={<Send className="h-4 w-4" />}>It settles on Stellar and the debt is marked paid once the memo is confirmed.</Bullet>
                 </ul>
                 <WalletPrerequisiteNotice status={wallet} onRefresh={refreshWallet} />
+                {target.assetCode !== "XLM" && target.assetIssuer && (
+                  <TrustlineBanner
+                    asset={{ code: target.assetCode, issuer: target.assetIssuer }}
+                  />
+                )}
                 <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                   <Button variant="ghost" onClick={close}>
                     Cancel

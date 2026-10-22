@@ -14,12 +14,18 @@ interface CheckLike {
 }
 
 const { mockCheck, stellar } = vi.hoisted(() => ({
-  mockCheck: { current: null as unknown as CheckLike },
+  mockCheck: {
+    current: null as unknown as CheckLike,
+    requiredAsset: null as { code: string; issuer: string | null } | null,
+  },
   stellar: { addTrustline: vi.fn(), hasTrustline: vi.fn() },
 }));
 
 vi.mock("@/hooks/useTrustlineRequirements", () => ({
-  useTrustlineRequirements: () => mockCheck.current,
+  useTrustlineRequirements: (asset?: { code: string; issuer: string | null }) => {
+    mockCheck.requiredAsset = asset ?? null;
+    return mockCheck.current;
+  },
 }));
 
 vi.mock("@/lib/stellar", () => {
@@ -77,7 +83,10 @@ function setCheck(overrides: Partial<CheckLike> = {}) {
  * The banner drives its submission through a React Query mutation, so it needs
  * the provider the app gives it in `app/providers.tsx`.
  */
-function renderBanner(props: { poll?: { timeoutMs?: number; intervalMs?: number } } = {}) {
+function renderBanner(props: {
+  poll?: { timeoutMs?: number; intervalMs?: number };
+  asset?: { code: string; issuer: string | null };
+} = {}) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
@@ -141,6 +150,14 @@ describe("TrustlineBanner", () => {
       screen.getByRole("heading", { name: /usdc trustline required/i })
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /add usdc trustline/i })).toBeInTheDocument();
+  });
+
+  it("checks only the settlement asset when one is provided", () => {
+    const requestedAsset = { code: "ARST", issuer: ISSUER };
+
+    renderBanner({ asset: requestedAsset });
+
+    expect(mockCheck.requiredAsset).toEqual(requestedAsset);
   });
 
   it("runs the Freighter flow and confirms with a toast", async () => {

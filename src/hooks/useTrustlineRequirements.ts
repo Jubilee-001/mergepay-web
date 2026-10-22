@@ -3,10 +3,8 @@
 /**
  * Aggregate settlement-asset trustline check (#370 / #378).
  *
- * `useTrustlineCheck` answers "does this wallet hold *this* asset?" and is
- * used for per-asset prompts. The verification banner needs the whole
- * picture — every configured settlement asset at once — so it can warn
- * before a settle is started, so this hook reads the connected account's
+ * The verification banner checks either every configured settlement asset
+ * or just the asset being settled. This hook reads the connected account's
  * balances from Horizon once and derives the missing set.
  *
  * The probe never prompts, so mounting this on a page cannot surface a
@@ -16,7 +14,7 @@
  * into the returned state — a Horizon outage must never crash a page.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { WatchWalletChanges } from "@stellar/freighter-api";
 import {
   getGrantedAddress,
@@ -24,7 +22,7 @@ import {
   isFreighterAvailable,
 } from "@/lib/stellar";
 import { summarizeTrustlines } from "@/lib/trustlineCheck";
-import type { TrustlineAsset } from "@/lib/trustline";
+import type { ConfiguredAsset, TrustlineAsset } from "@/lib/trustline";
 
 /** How often Freighter reports account/network changes while mounted. */
 const WATCH_INTERVAL_MS = 15_000;
@@ -66,10 +64,28 @@ const INITIAL_STATE: TrustlineRequirementState = {
   error: null,
 };
 
-export function useTrustlineRequirements(): UseTrustlineRequirements {
+export function useTrustlineRequirements(
+  requiredAsset?: ConfiguredAsset
+): UseTrustlineRequirements {
   const [state, setState] =
     useState<TrustlineRequirementState>(INITIAL_STATE);
   const mounted = useRef(true);
+  const requiredAssetCode = requiredAsset?.code;
+  const requiredAssetIssuer = requiredAsset?.issuer;
+  const requiredAssetName = requiredAsset?.name;
+  const requiredAssets = useMemo(
+    () =>
+      requiredAssetCode === undefined
+        ? undefined
+        : [
+            {
+              code: requiredAssetCode,
+              issuer: requiredAssetIssuer ?? null,
+              name: requiredAssetName,
+            },
+          ],
+    [requiredAssetCode, requiredAssetIssuer, requiredAssetName]
+  );
 
   const runCheck = useCallback(async () => {
     try {
@@ -103,7 +119,7 @@ export function useTrustlineRequirements(): UseTrustlineRequirements {
 
       setState((previous) => ({ ...previous, status: "checking", address }));
 
-      const assets = await getWalletAssets(address);
+      const assets = await getWalletAssets(address, requiredAssets);
       if (!mounted.current) return;
 
       const { status, missing } = summarizeTrustlines(assets);
@@ -117,7 +133,7 @@ export function useTrustlineRequirements(): UseTrustlineRequirements {
           "We couldn't check your wallet's trustlines. Check your connection and try again.",
       }));
     }
-  }, []);
+  }, [requiredAssets]);
 
   useEffect(() => {
     mounted.current = true;

@@ -39,6 +39,7 @@ import { useTrustlineRequirements } from "@/hooks/useTrustlineRequirements";
 import { useTrustlineSubmission } from "@/hooks/useTrustlineSubmission";
 import { SUBMISSION_STEPS, type SubmissionFailure } from "@/lib/walletSubmission";
 import { formatMissingAssetList, isAddableTrustline } from "@/lib/trustlineCheck";
+import type { ConfiguredAsset } from "@/lib/trustline";
 
 /** Which state the progress row is in, for colour and `aria-busy`. */
 function phaseState(failure: SubmissionFailure | null, confirmed: boolean) {
@@ -50,8 +51,11 @@ function phaseState(failure: SubmissionFailure | null, confirmed: boolean) {
 export function TrustlineBanner({
   className,
   poll,
+  asset,
 }: {
   className?: string;
+  /** Limit the check and add flow to the asset being settled. */
+  asset?: ConfiguredAsset;
   /**
    * Confirmation poll cadence. The app leaves this alone; tests tighten it so
    * a slow-network path can be exercised without waiting out the real 45s
@@ -59,7 +63,7 @@ export function TrustlineBanner({
    */
   poll?: { timeoutMs?: number; intervalMs?: number };
 }) {
-  const { status, missing, address, refresh } = useTrustlineRequirements();
+  const { status, missing, address, refresh } = useTrustlineRequirements(asset);
 
   const submission = useTrustlineSubmission({
     publicKey: address,
